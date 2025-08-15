@@ -1,4 +1,4 @@
-import os, json, requests, smtplib
+import os, requests, smtplib
 from email.mime.text import MIMEText
 
 def _smtp_send(subject, body):
@@ -9,7 +9,7 @@ def _smtp_send(subject, body):
     user = os.environ.get("SMTP_USER")
     pwd = os.environ.get("SMTP_PASS")
     from_addr = os.environ.get("SMTP_FROM", "ansiaudit@localhost")
-    to_addrs = [x.strip() for x in os.environ.get("SMTP_TO", "").split(",") if x.strip()]
+    to_addrs = [x.strip() for x in os.environ.get("SMTP_TO","").split(",") if x.strip()]
     if not to_addrs:
         return False
     msg = MIMEText(body)

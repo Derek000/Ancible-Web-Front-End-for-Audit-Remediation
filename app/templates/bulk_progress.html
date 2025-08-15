@@ -5,7 +5,6 @@
   <div class="bar" style="width: {{ progress.percent }}%"></div>
 </div>
 <p>{{ progress.done }}/{{ progress.total }} complete{% if eta %} — ETA ~ {{ (eta//60) }}m {{ (eta%60) }}s{% endif %}</p>
-<div id="progress" hx-get="{{ url_for('ui.bulk_fragment', job_id=job.id) }}" hx-trigger="load, every 2s" hx-swap="innerHTML">
-  Loading...
-</div>
+<div id="progress">Loading...</div>
+<script>startPolling("progress", "{{ url_for('ui.bulk_fragment', job_id=job.id) }}", 2000);</script>
 {% endblock %}

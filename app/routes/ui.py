@@ -1,11 +1,12 @@
-from flask import Blueprint, render_template, request, redirect, url_for, flash, send_file, jsonify
+from flask import Blueprint, render_template, request, redirect, url_for, flash, send_file
 from ..db import db
-from ..models import NetworkScan, Host, Credential, LockdownRole, AnsibleRun, BulkJob
+from ..models import NetworkScan, Host, Credential, LockdownRole, AnsibleRun, BulkJob, Schedule
 from ..scanner import NmapScanner
 from ..ansible_exec import AnsibleExecutor
 from ..reporting import ReportBuilder, compose_change_plan
 from ..security import SecretBox
 from ..jobs import job_manager
+from ..notifier import notify as notify_fn
 import json, os, datetime
 
 ui_bp = Blueprint("ui", __name__)
@@ -143,9 +144,7 @@ def remediate(run_id):
         return redirect(url_for("ui.report", run_id=run.id))
     return render_template("remediate.html", run=prev, controls=unique_controls, role=role)
 
-# -------------------- Bulk Ops (async + progress) --------------------
 def _bulk_worker(run_id, mode, role, selected_tags, host_ip):
-    # executed in a thread
     from ..ansible_exec import AnsibleExecutor
     from ..models import Credential, AnsibleRun
     from ..reporting import ReportBuilder
@@ -159,23 +158,20 @@ def _bulk_worker(run_id, mode, role, selected_tags, host_ip):
     db.session.add(run); db.session.commit()
     return run_id
 
-
 @ui_bp.route("/bulk", methods=["GET", "POST"])
 def bulk():
-    # Filters
     q_net = request.args.get("network", "").strip()
     q_os = request.args.get("os", "").strip()
     hosts_query = Host.query
     if q_os:
-        hosts_query = hosts_query.filter(Host.os_family.ilike(f"%{q_os}%") | Host.os_name.ilike(f"%{q_os}%"))
+        hosts_query = hosts_query.filter((Host.os_family.ilike(f"%{q_os}%")) | (Host.os_name.ilike(f"%{q_os}%")))
     if q_net:
-        # map network scan names to ids
         scans = NetworkScan.query.filter(NetworkScan.name.ilike(f"%{q_net}%")).all()
         ids = [s.id for s in scans]
         if ids:
             hosts_query = hosts_query.filter(Host.network_scan_id.in_(ids))
         else:
-            hosts_query = hosts_query.filter(Host.id == -1)  # no results
+            hosts_query = hosts_query.filter(Host.id == -1)
     hosts = hosts_query.order_by(Host.last_seen.desc()).all()
     roles = LockdownRole.query.order_by(LockdownRole.name.asc()).all()
     if request.method == "POST":
@@ -186,7 +182,6 @@ def bulk():
         tags_csv = request.form.get("tags_csv", "").strip()
         role = LockdownRole.query.get(role_id)
 
-        # Create bulk job
         bj = BulkJob(mode=mode, role_name=role.name, status="running", host_ips=json.dumps(selected_ips), run_ids=json.dumps([]))
         db.session.add(bj); db.session.commit()
 
@@ -224,33 +219,8 @@ def bulk():
         return redirect(url_for("ui.bulk_progress", job_id=bj.id))
     return render_template("bulk.html", hosts=hosts, roles=roles, q_net=q_net, q_os=q_os)
 
-
-
 @ui_bp.route("/bulk/<int:job_id>/progress")
 def bulk_progress(job_id):
-    bj = BulkJob.query.get(job_id)
-    runs = []
-    avg_sec = None
-    if bj and bj.run_ids:
-        ids = json.loads(bj.run_ids)
-        runs = AnsibleRun.query.filter(AnsibleRun.id.in_(ids)).order_by(AnsibleRun.started_at.desc()).all()
-        # compute avg duration from completed runs
-        durations = []
-        for r in runs:
-            if r.finished_at and r.started_at:
-                durations.append((r.finished_at - r.started_at).total_seconds())
-        if durations:
-            avg_sec = sum(durations)/len(durations)
-    # progress
-    p = job_manager.progress(job_id)
-    eta = None
-    if avg_sec and p["total"] and p["done"] is not None:
-        remaining = max(0, p["total"] - p["done"])
-        eta = int(remaining * avg_sec)
-    return render_template("bulk_progress.html", job=bj, runs=runs, eta=eta, progress=p)
-
-@ui_bp.route("/bulk/<int:job_id>/fragment")
-def bulk_fragment(job_id):
     bj = BulkJob.query.get(job_id)
     runs = []
     avg_sec = None
@@ -268,6 +238,17 @@ def bulk_fragment(job_id):
     if avg_sec and p["total"]:
         remaining = max(0, p["total"] - p["done"])
         eta = int(remaining * avg_sec)
+    return render_template("bulk_progress.html", job=bj, runs=runs, eta=eta, progress=p)
+
+@ui_bp.route("/bulk/<int:job_id>/fragment")
+def bulk_fragment(job_id):
+    bj = BulkJob.query.get(job_id)
+    runs = []
+    if bj and bj.run_ids:
+        ids = json.loads(bj.run_ids)
+        runs = AnsibleRun.query.filter(AnsibleRun.id.in_(ids)).order_by(AnsibleRun.started_at.desc()).all()
+    p = job_manager.progress(job_id)
+    eta = None
     return render_template("_bulk_table.html", job=bj, runs=runs, eta=eta, progress=p)
 
 @ui_bp.route("/export/run/<int:run_id>")
@@ -282,7 +263,6 @@ def export_run(run_id):
 
 @ui_bp.route("/export/change_plan/<int:remediate_run_id>")
 def export_change_plan(remediate_run_id):
-    # Locate before and after audit runs for same host+role
     r = AnsibleRun.query.get(remediate_run_id)
     if not r or r.mode != "remediate":
         flash("Invalid remediation run", "error")
@@ -323,11 +303,14 @@ def export_bulk():
         return send_file(out, as_attachment=True, download_name=os.path.basename(out))
     return render_template("export_bulk.html", runs=runs)
 
+@ui_bp.route("/preflight")
+def preflight():
+    from ..preflight import run_preflight
+    result = run_preflight()
+    return render_template("preflight.html", result=result)
 
-# -------------------- Schedules --------------------
 @ui_bp.route("/schedules", methods=["GET", "POST"])
 def schedules():
-    from ..models import Schedule
     hosts = Host.query.order_by(Host.last_seen.desc()).all()
     roles = LockdownRole.query.order_by(LockdownRole.name.asc()).all()
     if request.method == "POST":
@@ -339,17 +322,13 @@ def schedules():
         notify = request.form.get("notify") == "on"
         selected_ips = request.form.getlist("ips")
         role = LockdownRole.query.get(role_id)
-        from ..models import Schedule
         sc = Schedule(name=name, role_name=role.name, host_ips=json.dumps(selected_ips), cadence=cadence, interval_seconds=interval or None, cron=cron or None, notify=notify, enabled=True)
         db.session.add(sc); db.session.commit()
-        # register with scheduler
         def _job(sc_id=sc.id):
-            # execute bulk audit with notifications
             s = Schedule.query.get(sc_id)
             if not s or not s.enabled:
                 return
             ips = json.loads(s.host_ips)
-            # create bulk job in AUDIT mode
             bj = BulkJob(mode="audit", role_name=s.role_name, status="running", host_ips=json.dumps(ips), run_ids=json.dumps([]))
             db.session.add(bj); db.session.commit()
             role = LockdownRole.query.filter_by(name=s.role_name).first()
@@ -366,14 +345,12 @@ def schedules():
             bj.run_ids = json.dumps(created_ids)
             db.session.add(bj); db.session.commit()
             job_manager.submit_bulk(bj.id, futures)
-            # optional notify
             if s.notify:
-                from ..notifier import notify as notify_fn
                 subject = f"Ansiaudit schedule '{s.name}' started"
                 body = f"Role: {s.role_name}\nHosts: {', '.join(ips)}"
                 notify_fn(subject, body)
-
         job_id = f"schedule-{sc.id}"
+        from ..jobs import job_manager
         if cadence == "daily":
             job_manager.schedule_cron(job_id, _job, hour=3, minute=0)
         elif cadence == "weekly":
@@ -381,23 +358,10 @@ def schedules():
         elif cadence == "interval" and interval > 0:
             job_manager.schedule_interval(job_id, _job, seconds=interval)
         elif cadence == "cron" and cron:
-            # Expect cron as "m h dom mon dow"
             m,h,dom,mon,dow = cron.split()
             job_manager.scheduler.add_job(_job, "cron", id=job_id, replace_existing=True, minute=m, hour=h, day=dom, month=mon, day_of_week=dow)
         flash("Schedule created", "success")
         return redirect(url_for("ui.schedules"))
-    from ..models import Schedule
-    scheds = Schedule.query.order_by(Schedule.created_at.desc()).all()
+    from ..models import Schedule as S
+    scheds = S.query.order_by(S.created_at.desc()).all()
     return render_template("schedules.html", hosts=hosts, roles=roles, scheds=scheds)
-
-@ui_bp.post("/schedules/<int:sid>/toggle")
-def schedule_toggle(sid):
-    from ..models import Schedule
-    s = Schedule.query.get(sid)
-    if not s:
-        flash("Schedule not found", "error")
-        return redirect(url_for("ui.schedules"))
-    s.enabled = not s.enabled
-    db.session.add(s); db.session.commit()
-    flash("Schedule toggled", "success")
-    return redirect(url_for("ui.schedules"))

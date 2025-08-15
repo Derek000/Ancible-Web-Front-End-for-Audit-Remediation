@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 {% block content %}
-<h2>Remediation — {{ role.name }} — {{ run.host_ip }}</h2>
+<h2>Remediation — {{ run.role_name }} — {{ run.host_ip }}</h2>
 <form method="post">
   <p>Select controls to remediate (from last audit):</p>
   <div class="chips">

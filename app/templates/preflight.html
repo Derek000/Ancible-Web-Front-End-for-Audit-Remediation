@@ -1,0 +1,51 @@
+
+{% extends "base.html" %}
+{% block content %}
+<h2>Preflight Check</h2>
+<p id="overall">Overall status: {% if result.overall_ok %}<strong style="color:var(--ok)">OK</strong>{% else %}<strong style="color:var(--err)">Attention needed</strong>{% endif %}</p>
+<button id="preflightRun" class="btn" onclick="runPreflight('preflightRun','preflightBody','overall')">Run check again</button>
+
+<table>
+  <thead><tr><th>Category</th><th>Name</th><th>Status</th><th>Detail / Suggested fix</th></tr></thead>
+  <tbody id="preflightBody">
+  {% for c in result.checks %}
+    <tr>
+      <td>{{ c.category }}</td>
+      <td>{{ c.name }}</td>
+      <td>{% if c.ok %}<span style="color:var(--ok)">OK</span>{% else %}<span style="color:var(--err)">Fail</span>{% endif %}</td>
+      <td>
+        <code>{{ c.detail }}</code>
+        {% if not c.ok %}
+          {% set fix = namespace(tip='') %}
+          {% if c.category == 'binaries' and c.name in ['ansible-playbook','ansible'] %}
+            {% set fix.tip = 'Install Ansible via APT or inside the project venv.' %}
+            <div class="tip">{{ fix.tip }}</div>
+            <div class="cmd"><code>sudo apt update && sudo apt install -y ansible</code> <button onclick="copyText('sudo apt update && sudo apt install -y ansible')">Copy</button></div>
+            <div class="cmd"><code>python3 -m venv .venv && source .venv/bin/activate && pip install --upgrade pip && pip install 'ansible-core>=2.16,<2.18' 'ansible>=9,<10'</code> <button onclick="copyText(`python3 -m venv .venv && source .venv/bin/activate && pip install --upgrade pip && pip install 'ansible-core>=2.16,<2.18' 'ansible>=9,<10'`)">Copy</button></div>
+          {% elif c.category == 'binaries' and c.name == 'nmap' %}
+            <div class="tip">Install Nmap (and grant capabilities for -O if desired).</div>
+            <div class="cmd"><code>sudo apt update && sudo apt install -y nmap</code> <button onclick="copyText('sudo apt update && sudo apt install -y nmap')">Copy</button></div>
+            <div class="cmd"><code>sudo setcap cap_net_raw,cap_net_admin,cap_net_bind_service+eip $(which nmap)</code> <button onclick="copyText('sudo setcap cap_net_raw,cap_net_admin,cap_net_bind_service+eip $(which nmap)')">Copy</button></div>
+          {% elif c.category == 'capabilities' %}
+            <div class="tip">Grant Nmap OS detection capabilities or run scans with sudo.</div>
+            <div class="cmd"><code>sudo setcap cap_net_raw,cap_net_admin,cap_net_bind_service+eip $(which nmap)</code> <button onclick="copyText('sudo setcap cap_net_raw,cap_net_admin,cap_net_bind_service+eip $(which nmap)')">Copy</button></div>
+          {% elif c.category == 'binaries' and c.name == 'git' %}
+            <div class="tip">Install Git to fetch ansible-lockdown roles.</div>
+            <div class="cmd"><code>sudo apt update && sudo apt install -y git</code> <button onclick="copyText('sudo apt update && sudo apt install -y git')">Copy</button></div>
+          {% elif c.category == 'python' %}
+            {% set mod = c.name.split('python:',1)[-1] %}
+            <div class="tip">Install the Python module '{{ mod }}' (prefer inside the project venv).</div>
+            <div class="cmd"><code>source .venv/bin/activate && pip install {{ mod }}</code> <button onclick="copyText('source .venv/bin/activate && pip install {{ mod }}')">Copy</button></div>
+          {% elif c.category == 'filesystem' %}
+            <div class="tip">Create and grant write access to the required directory.</div>
+            <div class="cmd"><code>sudo mkdir -p {{ c.name }} && sudo chown $USER:$USER {{ c.name }}</code> <button onclick="copyText('sudo mkdir -p {{ c.name }} && sudo chown $USER:$USER {{ c.name }}')">Copy</button></div>
+          {% elif c.category == 'roles' %}
+            <div class="tip">Fetch a role via the UI: Content → Lockdown Roles (e.g., UBUNTU22-CIS).</div>
+          {% endif %}
+        {% endif %}
+      </td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% endblock %}

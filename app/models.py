@@ -15,7 +15,7 @@ class NetworkScan(db.Model):
 class Host(db.Model):
     __tablename__ = "hosts"
     id = db.Column(db.Integer, primary_key=True)
-    ip = db.Column(db.String(64), index=True, nullable=False, unique=False)
+    ip = db.Column(db.String(64), index=True, nullable=False)
     hostname = db.Column(db.String(256))
     os_name = db.Column(db.String(256))
     os_family = db.Column(db.String(64))
@@ -49,9 +49,9 @@ class BulkJob(db.Model):
     mode = db.Column(db.String(16), nullable=False)  # audit|remediate
     role_name = db.Column(db.String(256), nullable=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    status = db.Column(db.String(32), default="running")  # running|complete|failed
+    status = db.Column(db.String(32), default="running")
     host_ips = db.Column(db.Text, nullable=False)        # JSON list
-    run_ids = db.Column(db.Text, nullable=True)          # JSON list accumulating as runs are created
+    run_ids = db.Column(db.Text, nullable=True)          # JSON list
 
 class AnsibleRun(db.Model):
     __tablename__ = "ansible_runs"
@@ -67,7 +67,6 @@ class AnsibleRun(db.Model):
     report_path = db.Column(db.String(256), nullable=True)
     bulk_job_id = db.Column(db.Integer, db.ForeignKey("bulk_jobs.id", ondelete="SET NULL"), nullable=True)
 
-
 class Schedule(db.Model):
     __tablename__ = "schedules"
     id = db.Column(db.Integer, primary_key=True)
@@ -75,7 +74,7 @@ class Schedule(db.Model):
     role_name = db.Column(db.String(256), nullable=False)
     host_ips = db.Column(db.Text, nullable=False)  # JSON list
     cadence = db.Column(db.String(64), nullable=False)  # daily|weekly|interval|cron
-    cron = db.Column(db.String(64), nullable=True)  # e.g., "0 3 * * *" (unused if daily/weekly)
+    cron = db.Column(db.String(64), nullable=True)  # m h dom mon dow
     interval_seconds = db.Column(db.Integer, nullable=True)
     enabled = db.Column(db.Boolean, default=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)

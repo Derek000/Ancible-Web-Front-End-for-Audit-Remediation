@@ -30,7 +30,7 @@
 
 <h3>Existing Schedules</h3>
 <table>
-  <thead><tr><th>ID</th><th>Name</th><th>Role</th><th>Cadence</th><th>Enabled</th><th>Hosts</th><th>Actions</th></tr></thead>
+  <thead><tr><th>ID</th><th>Name</th><th>Role</th><th>Cadence</th><th>Enabled</th><th>Hosts</th></tr></thead>
   <tbody>
     {% for s in scheds %}
     <tr>
@@ -40,11 +40,6 @@
       <td>{{ s.cadence }} {% if s.cadence=='interval' %}({{ s.interval_seconds }}s){% elif s.cadence=='cron' %}({{ s.cron }}){% endif %}</td>
       <td>{{ 'Yes' if s.enabled else 'No' }}</td>
       <td>{{ (s.host_ips|length) if s.host_ips else 0 }}</td>
-      <td>
-        <form method="post" action="{{ url_for('ui.schedule_toggle', sid=s.id) }}">
-          <button type="submit">{{ 'Disable' if s.enabled else 'Enable' }}</button>
-        </form>
-      </td>
     </tr>
     {% endfor %}
   </tbody>

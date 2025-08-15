@@ -4,7 +4,7 @@ from .db import db
 from .models import Credential, LockdownRole, AnsibleRun
 
 class AnsibleExecutor:
-    def __init__(self, artifact_root="data/artifacts"):
+    def __init__(self, artifact_root='data/artifacts'):
         self.artifact_root = artifact_root
         os.makedirs(self.artifact_root, exist_ok=True)
         self.secrets = SecretBox()
@@ -22,7 +22,6 @@ class AnsibleExecutor:
             if cred.auth_type == "password":
                 lines.append(f"{host_ip} ansible_user={cred.username} ansible_password={self.secrets.decrypt(cred.secret_enc).decode()} ansible_port={cred.port} ansible_become={'yes' if cred.become else 'no'} ansible_become_method=sudo")
             else:
-                # ssh key
                 keyfile = self._write_temp_key(self.secrets.decrypt(cred.secret_enc))
                 lines.append(f"{host_ip} ansible_user={cred.username} ansible_ssh_private_key_file={keyfile} ansible_port={cred.port} ansible_become={'yes' if cred.become else 'no'} ansible_become_method=sudo")
         with open(inv_path, "w") as f:
@@ -53,7 +52,6 @@ class AnsibleExecutor:
         return list(sorted(tags))
 
     def run_role(self, run: AnsibleRun, cred: Credential, role: LockdownRole, mode="audit", selected_tags=None):
-        os.makedirs(self.artifact_root, exist_ok=True)
         ts = datetime.datetime.utcnow().strftime("%Y%m%dT%H%M%SZ")
         rundir = os.path.join(self.artifact_root, f"ansible_{run.id}_{ts}")
         os.makedirs(rundir, exist_ok=True)
@@ -81,7 +79,6 @@ class AnsibleExecutor:
         roles_path = env.get("ANSIBLE_ROLES_PATH", "")
         env["ANSIBLE_ROLES_PATH"] = f"{roles_path}:{os.path.abspath('content/ansible-lockdown')}" if roles_path else os.path.abspath("content/ansible-lockdown")
 
-        # Record a plan file for CAB
         plan_path = os.path.join(rundir, "plan.txt")
         with open(plan_path, "w") as pf:
             pf.write("Command:\n")
@@ -90,7 +87,6 @@ class AnsibleExecutor:
             if selected_tags:
                 pf.write(f"Tags: {','.join(selected_tags)}\n")
 
-        # Execute
         jsonlog = os.path.join(rundir, "ansible.json")
         proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, env=env)
         lines = []
@@ -107,7 +103,6 @@ class AnsibleExecutor:
         summary["host"] = run.host_ip
         summary["role_commit"] = role.commit
 
-        # Keep inventory copy in rundir for export
         inv_copy = os.path.join(rundir, "inventory.ini")
         try:
             shutil.copy(inventory, inv_copy)

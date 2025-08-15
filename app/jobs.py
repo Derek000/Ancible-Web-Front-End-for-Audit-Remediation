@@ -1,5 +1,5 @@
 from concurrent.futures import ThreadPoolExecutor
-import os, threading, datetime
+import os, threading
 from apscheduler.schedulers.background import BackgroundScheduler
 
 class JobManager:
@@ -7,8 +7,8 @@ class JobManager:
         max_workers = max_workers or int(os.environ.get("PARALLELISM", "4"))
         self.pool = ThreadPoolExecutor(max_workers=max_workers)
         self.lock = threading.Lock()
-        self.bulk_futures = {}  # bulk_job_id -> list[future]
-        self.scheduler = BackgroundScheduler(timezone=os.environ.get("TZ", "UTC"))
+        self.bulk_futures = {}
+        self.scheduler = BackgroundScheduler(timezone=os.environ.get("TZ","UTC"))
         self.scheduler.start()
 
     def submit(self, fn, *args, **kwargs):
@@ -26,11 +26,10 @@ class JobManager:
         percent = (done*100 // total) if total else 0
         return {"total": total, "done": done, "percent": percent}
 
-    # Scheduler wrappers
     def schedule_cron(self, job_id, func, **cron):
         self.scheduler.add_job(func, "cron", id=job_id, replace_existing=True, **cron)
 
-    def schedule_interval(self, job_id, func, seconds: int):
+    def schedule_interval(self, job_id, func, seconds:int):
         self.scheduler.add_job(func, "interval", id=job_id, seconds=seconds, replace_existing=True)
 
     def start(self):

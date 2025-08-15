@@ -16,3 +16,10 @@ def job_status(job_id):
         for r in rows:
             runs.append({"id": r.id, "host": r.host_ip, "role": r.role_name, "mode": r.mode, "status": r.status})
     return jsonify({"progress": p, "runs": runs})
+
+
+@api_bp.get("/preflight")
+def preflight_api():
+    from ..preflight import run_preflight, decorate_with_fixes
+    result = decorate_with_fixes(run_preflight())
+    return jsonify(result)

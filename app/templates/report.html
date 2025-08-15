@@ -1,8 +1,9 @@
 {% extends "base.html" %}
 {% block content %}
 <h2>Run #{{ run.id }} — {{ run.mode|upper }} — {{ run.role_name }} — {{ run.host_ip }}</h2>
-<p>Status: {{ run.status }} {% if run.report_path %}— <a href="/{{ run.report_path }}">Open HTML Report</a>{% endif %}</p><p><a class="btn" href="{{ url_for('ui.export_run', run_id=run.id) }}">Download CAB Package</a></p>
+<p>Status: {{ run.status }} {% if run.report_path %}— <a href="/{{ run.report_path }}">Open HTML Report</a>{% endif %}</p>
 {% if summary %}
+  <p><a class="btn" href="{{ url_for('ui.export_run', run_id=run.id) }}">Download CAB Package</a></p>
   {% if run.mode == 'remediate' %}
   <p><a class="btn" href="{{ url_for('ui.export_change_plan', remediate_run_id=run.id) }}">Download Change Plan (before/after)</a></p>
   {% endif %}
@@ -12,8 +13,5 @@
     <li>Compliant (ok+skipped): {{ summary.compliant|length }}</li>
     <li>Non-compliant (changed+failed): {{ summary.noncompliant|length }}</li>
   </ul>
-  {% if run.mode == 'audit' %}
-    <p><a class="btn" href="{{ url_for('ui.remediate', run_id=run.id) }}">Select failed controls for Remediation</a></p><p><a class="btn" href="{{ url_for('ui.export_run', run_id=run.id) }}">Download CAB Package</a></p>
-  {% endif %}
 {% endif %}
 {% endblock %}

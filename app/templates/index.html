@@ -20,7 +20,7 @@
 <section>
   <h2>Assets</h2>
   <table>
-    <thead><tr><th>IP</th><th>Hostname</th><th>OS</th><th>Creds</th><th>Actions</th></tr></thead>
+    <thead><tr><th>IP</</th><th>Hostname</th><th>OS</th><th>Creds</th><th>Actions</th></tr></thead>
     <tbody>
       {% for h in hosts %}
         <tr>
@@ -54,7 +54,9 @@
           <td>{{ r.role_name }}</td>
           <td>{{ r.mode }}</td>
           <td>{{ r.status }}</td>
-          <td>{% if r.report_path %}<a href="/{{ r.report_path }}">view</a>{% endif %} {% if r.mode=='audit' and r.status=='complete' %}<a href="{{ url_for('ui.remediate', run_id=r.id) }}">Remediate</a>{% endif %}</td>
+          <td>{% if r.report_path %}<a href="/{{ r.report_path }}">view</a>{% endif %}
+              {% if r.mode=='audit' and r.status=='complete' %}<a href="{{ url_for('ui.remediate', run_id=r.id) }}">Remediate</a>{% endif %}
+          </td>
         </tr>
       {% endfor %}
     </tbody>

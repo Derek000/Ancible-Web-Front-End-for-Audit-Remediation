@@ -5,6 +5,7 @@
     <title>Ansiaudit UI</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='app.css') }}">
     <script src="{{ url_for('static', filename='htmx.min.js') }}"></script>
+    <script src="{{ url_for('static', filename='poll.js') }}"></script>
   </head>
   <body>
     <header class="masthead">
@@ -14,12 +15,11 @@
         <a href="{{ url_for('ui.scan') }}">Scan</a>
         <a href="{{ url_for('ui.assets') }}">Assets</a>
         <a href="{{ url_for('ui.content_lockdown') }}">Content</a>
-      <a href="{{ url_for('ui.bulk') }}">Bulk</a>
-<a href="{{ url_for('ui.export_bulk') }}">Export</a>
-<a href="{{ url_for('ui.bulk') }}">Bulk</a>
-<a href="{{ url_for('ui.export_bulk') }}">Export</a>
-<a href="{{ url_for('ui.schedules') }}">Schedules</a>
-</nav>
+        <a href="{{ url_for('ui.bulk') }}">Bulk</a>
+        <a href="{{ url_for('ui.export_bulk') }}">Export</a>
+        <a href="{{ url_for('ui.schedules') }}">Schedules</a>
+        <a href="{{ url_for('ui.preflight') }}">Preflight</a>
+      </nav>
     </header>
     <main class="container">
       {% with messages = get_flashed_messages(with_categories=true) %}
