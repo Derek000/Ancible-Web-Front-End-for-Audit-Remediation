@@ -1,0 +1,104 @@
+
+{% extends "base.html" %}
+{% block content %}
+<h2>TCP/UDP Port Scan</h2>
+
+<h3>Saved Profiles</h3>
+<form id="profileForm" method="post" action="{{ url_for('ui.ports') }}">
+  <label>Profile
+    <select name="profile_id" id="profileSelect" onchange="applyProfile(this.value)">
+      <option value="0">(none)</option>
+      {% for p in profiles %}
+      <option value="{{ p.id }}">{{ p.name }}</option>
+      {% endfor %}
+    </select>
+  </label>
+</form>
+
+<form method="post" id="portsRunForm">
+  <h3>Targets</h3>
+  <div class="hostlist">
+    {% for h in hosts %}
+    <label><input type="checkbox" name="ips" value="{{ h.ip }}"> {{ h.ip }} — {{ h.hostname or '-' }} — {{ h.os_name or h.os_family or '-' }}</label><br/>
+    {% endfor %}
+  </div>
+
+  <h3>TCP</h3>
+  <label>Profile
+    <select name="tcp_profile" id="tcp_profile">
+      <option value="top1000">Extended common (1-1024 + common apps)</option>
+      <option value="top100">Top 1–1024 only</option>
+      <option value="custom">Custom list/range</option>
+      <option value="none">Skip TCP</option>
+    </select>
+  </label>
+  <label>Custom TCP ports <input type="text" name="tcp_custom" id="tcp_custom" placeholder="22,80,443 or 1-65535"></label>
+
+  <h3>UDP</h3>
+  <label>Profile
+    <select name="udp_profile" id="udp_profile">
+      <option value="none">Skip UDP (faster)</option>
+      <option value="top50">Common UDP</option>
+      <option value="custom">Custom list/range</option>
+    </select>
+  </label>
+  <label>Custom UDP ports <input type="text" name="udp_custom" id="udp_custom" placeholder="53,123 or 1-65535"></label>
+
+  <h3>Service & Timing</h3>
+  <label><input type="checkbox" name="version" id="version"> Service version detection (-sV)</label>
+  <label>Timing (T0–T5) <input type="text" name="timing" id="timing" value="T4"></label>
+  <label>Host timeout (e.g., 90s, 5m) <input type="text" name="host_timeout" id="host_timeout" value="90s"></label>
+
+  <button type="submit">Start Scan</button>
+</form>
+
+<h3>Save current settings as a profile</h3>
+<form method="post" action="{{ url_for('ui.ports_profile_save') }}">
+  <label>Name <input type="text" name="profile_name" required></label>
+  <label>Description <input type="text" name="profile_desc" placeholder="e.g., Incident UDP quick sweep"></label>
+  <!-- Hidden mirrors of current form to capture settings -->
+  <input type="hidden" name="tcp_profile" id="sp_tcp_profile">
+  <input type="hidden" name="tcp_custom" id="sp_tcp_custom">
+  <input type="hidden" name="udp_profile" id="sp_udp_profile">
+  <input type="hidden" name="udp_custom" id="sp_udp_custom">
+  <input type="hidden" name="version" id="sp_version">
+  <input type="hidden" name="timing" id="sp_timing">
+  <input type="hidden" name="host_timeout" id="sp_host_timeout">
+  <button type="submit" onclick="mirrorSettings()">Save profile</button>
+</form>
+
+{% if profiles %}
+<h4>Manage profiles</h4>
+<ul>
+{% for p in profiles %}
+  <li>{{ p.name }} — {{ p.description or '' }}
+    <form style="display:inline" method="post" action="{{ url_for('ui.ports_profile_delete', pid=p.id) }}"><button type="submit">Delete</button></form>
+  </li>
+{% endfor %}
+</ul>
+{% endif %}
+
+<script>
+async function applyProfile(id){
+  if (!id || id === "0") return;
+  const r = await fetch(`/api/ports/profile/${id}`);
+  if (!r.ok) return;
+  const p = await r.json();
+  // Populate custom fields and set selectors to 'custom' if given
+  if (p.tcp_ports){ document.getElementById('tcp_profile').value = 'custom'; document.getElementById('tcp_custom').value = p.tcp_ports; }
+  if (p.udp_ports){ document.getElementById('udp_profile').value = 'custom'; document.getElementById('udp_custom').value = p.udp_ports; }
+  document.getElementById('version').checked = !!p.version_probe;
+  document.getElementById('timing').value = p.timing || 'T4';
+  document.getElementById('host_timeout').value = p.host_timeout || '90s';
+}
+function mirrorSettings(){
+  document.getElementById('sp_tcp_profile').value = document.getElementById('tcp_profile').value;
+  document.getElementById('sp_tcp_custom').value = document.getElementById('tcp_custom').value;
+  document.getElementById('sp_udp_profile').value = document.getElementById('udp_profile').value;
+  document.getElementById('sp_udp_custom').value = document.getElementById('udp_custom').value;
+  document.getElementById('sp_version').value = document.getElementById('version').checked ? 'on' : '';
+  document.getElementById('sp_timing').value = document.getElementById('timing').value;
+  document.getElementById('sp_host_timeout').value = document.getElementById('host_timeout').value;
+}
+</script>
+{% endblock %}

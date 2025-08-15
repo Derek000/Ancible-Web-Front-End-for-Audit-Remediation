@@ -1,0 +1,10 @@
+{% extends "base.html" %}
+{% block content %}
+<h2>Port Scan Job #{{ job.id }}</h2>
+<div class="progressbar">
+  <div class="bar" style="width: {{ progress.percent }}%"></div>
+</div>
+<p>{{ progress.done }}/{{ progress.total }} complete{% if eta %} — ETA ~ {{ (eta//60) }}m {{ (eta%60) }}s{% endif %}</p>
+<div id="pfrag">Loading...</div>
+<script>startPolling("pfrag", "{{ url_for('ui.ports_fragment', job_id=job.id) }}", 2000);</script>
+{% endblock %}

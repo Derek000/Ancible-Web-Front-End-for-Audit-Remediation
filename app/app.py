@@ -7,6 +7,7 @@ from .routes.api import api_bp
 from .jobs import job_manager
 
 def create_app():
+    import json as _json
     load_env()
     app = Flask(__name__, template_folder="templates", static_folder="static")
     app.config["SECRET_KEY"] = os.environ.get("SECRET_KEY", os.urandom(32))
@@ -21,6 +22,7 @@ def create_app():
     init_db(app)
 
     app.register_blueprint(ui_bp)
+    app.jinja_env.filters['fromjson'] = lambda s: _json.loads(s or '[]')
     app.register_blueprint(api_bp, url_prefix="/api")
 
     job_manager.start()

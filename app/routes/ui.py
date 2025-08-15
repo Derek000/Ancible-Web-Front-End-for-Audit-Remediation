@@ -1,6 +1,6 @@
 from flask import Blueprint, render_template, request, redirect, url_for, flash, send_file
 from ..db import db
-from ..models import NetworkScan, Host, Credential, LockdownRole, AnsibleRun, BulkJob, Schedule
+from ..models import NetworkScan, Host, Credential, LockdownRole, AnsibleRun, BulkJob, Schedule, PortProfile
 from ..scanner import NmapScanner
 from ..ansible_exec import AnsibleExecutor
 from ..reporting import ReportBuilder, compose_change_plan
@@ -365,3 +365,143 @@ def schedules():
     from ..models import Schedule as S
     scheds = S.query.order_by(S.created_at.desc()).all()
     return render_template("schedules.html", hosts=hosts, roles=roles, scheds=scheds)
+
+
+from ..port_scanner import PortScanner
+from datetime import datetime as _dt
+
+def _ports_worker(result_id, ip, options):
+    from ..db import db
+    from ..models import PortResult
+    ps = PortScanner()
+    tcp = options.get("tcp_ports") or None
+    udp = options.get("udp_ports") or None
+    version = bool(options.get("version", False))
+    outdir, open_tcp, open_udp, rc = ps.scan_host(ip, tcp_ports=tcp, udp_ports=udp, version=version, timing=options.get('timing','T4'), host_timeout=options.get('host_timeout','90s'))
+    r = PortResult.query.get(result_id)
+    r.status = "complete" if rc in (0, 1) else "failed"  # nmap returns 1 on some partial scans
+    r.finished_at = _dt.utcnow()
+    r.artifact_path = outdir
+    import json as _json
+    r.open_tcp = _json.dumps(open_tcp)
+    r.open_udp = _json.dumps(open_udp)
+    db.session.add(r); db.session.commit()
+    return result_id
+
+@ui_bp.route("/ports", methods=["GET", "POST"])
+def ports():
+    hosts = Host.query.order_by(Host.last_seen.desc()).all()
+    profiles = PortProfile.query.order_by(PortProfile.name.asc()).all()
+    if request.method == "POST":
+        selected_ips = request.form.getlist("ips")
+        # Either a selected profile or individual fields
+        prof_id = request.form.get("profile_id")
+        if prof_id and prof_id.isdigit() and int(prof_id) > 0:
+            p = PortProfile.query.get(int(prof_id))
+            tcp_ports = p.tcp_ports or None
+            udp_ports = p.udp_ports or None
+            version = bool(p.version_probe)
+            timing = p.timing or "T4"
+            host_timeout = p.host_timeout or "90s"
+        else:
+            tcp_profile = request.form.get("tcp_profile", "top1000")
+            udp_profile = request.form.get("udp_profile", "none")
+            version = request.form.get("version") == "on"
+            timing = request.form.get("timing", "T4")
+            host_timeout = request.form.get("host_timeout", "90s")
+
+            tcp_ports = ""
+            udp_ports = ""
+            if tcp_profile == "top1000":
+                tcp_ports = "1-1024,3306,3389,5432,5900,8080,8443,22,80,443,25,110,139,445,53"
+            elif tcp_profile == "top100":
+                tcp_ports = "1-1024"
+            elif tcp_profile == "custom":
+                tcp_ports = request.form.get("tcp_custom","").strip()
+            else:
+                tcp_ports = ""
+
+            if udp_profile == "top50":
+                udp_ports = "53,67,68,123,137,138,161,500,1900,4500"
+            elif udp_profile == "custom":
+                udp_ports = request.form.get("udp_custom","").strip()
+            else:
+                udp_ports = ""
+
+        options = {"tcp_ports": tcp_ports or None, "udp_ports": udp_ports or None, "version": version, "timing": timing, "host_timeout": host_timeout}
+        pj = PortJob(status="running", host_ips=json.dumps(selected_ips), options=json.dumps(options), result_ids=json.dumps([]))
+        db.session.add(pj); db.session.commit()
+
+        futures = []
+        result_ids = []
+        for ip in selected_ips:
+            pr = PortResult(job_id=pj.id, host_ip=ip, status="running", started_at=_dt.utcnow())
+            db.session.add(pr); db.session.commit()
+            result_ids.append(pr.id)
+            fut = job_manager.submit(_ports_worker, pr.id, ip, options)
+            futures.append(fut)
+
+        pj.result_ids = json.dumps(result_ids)
+        db.session.add(pj); db.session.commit()
+        job_manager.submit_bulk(pj.id, futures)
+        return redirect(url_for("ui.ports_progress", job_id=pj.id))
+    return render_template("ports.html", hosts=hosts, profiles=profiles)
+
+@ui_bp.route("/ports/<int:job_id>/progress")
+def ports_progress(job_id):
+    pj = PortJob.query.get(job_id)
+    results = []
+    if pj and pj.result_ids:
+        ids = json.loads(pj.result_ids)
+        results = PortResult.query.filter(PortResult.id.in_(ids)).order_by(PortResult.started_at.desc()).all()
+    p = job_manager.progress(job_id)
+    eta = None
+    # naive: assume 15s per host if no real durations available
+    if p["total"]:
+        eta = max(0, (p["total"] - p["done"])) * 15
+    return render_template("ports_progress.html", job=pj, results=results, progress=p, eta=eta)
+
+@ui_bp.route("/ports/<int:job_id>/fragment")
+def ports_fragment(job_id):
+    pj = PortJob.query.get(job_id)
+    results = []
+    if pj and pj.result_ids:
+        ids = json.loads(pj.result_ids)
+        results = PortResult.query.filter(PortResult.id.in_(ids)).order_by(PortResult.started_at.desc()).all()
+    p = job_manager.progress(job_id)
+    return render_template("_ports_table.html", job=pj, results=results, progress=p)
+
+
+@ui_bp.post("/ports/profile/save")
+def ports_profile_save():
+    name = request.form["profile_name"].strip()
+    desc = request.form.get("profile_desc","").strip()
+    timing = request.form.get("timing","T4").strip()
+    host_timeout = request.form.get("host_timeout","90s").strip()
+    # if a base profile is chosen, still combine with custom fields
+    tcp_profile = request.form.get("tcp_profile","top1000")
+    udp_profile = request.form.get("udp_profile","none")
+    tcp_ports = request.form.get("tcp_custom","").strip() if tcp_profile == "custom" else ( "1-1024,3306,3389,5432,5900,8080,8443,22,80,443,25,110,139,445,53" if tcp_profile=="top1000" else ("1-1024" if tcp_profile=="top100" else ""))
+    udp_ports = request.form.get("udp_custom","").strip() if udp_profile == "custom" else ( "53,67,68,123,137,138,161,500,1900,4500" if udp_profile=="top50" else "" )
+    version = request.form.get("version") == "on"
+    # upsert by name
+    p = PortProfile.query.filter_by(name=name).first()
+    if not p:
+        p = PortProfile(name=name)
+    p.description = desc
+    p.tcp_ports = tcp_ports or None
+    p.udp_ports = udp_ports or None
+    p.version_probe = bool(version)
+    p.timing = timing or "T4"
+    p.host_timeout = host_timeout or "90s"
+    db.session.add(p); db.session.commit()
+    flash("Profile saved", "success")
+    return redirect(url_for("ui.ports"))
+
+@ui_bp.post("/ports/profile/delete/<int:pid>")
+def ports_profile_delete(pid):
+    p = PortProfile.query.get(pid)
+    if p:
+        db.session.delete(p); db.session.commit()
+        flash("Profile deleted", "success")
+    return redirect(url_for("ui.ports"))

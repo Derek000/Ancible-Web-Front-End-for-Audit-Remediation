@@ -66,3 +66,24 @@ Use **Preflight** in the navbar to validate your environment:
 ### Preflight enhancements
 - **Inline fix suggestions**: failing checks list specific commands to copy-paste.
 - **One-click re-check**: run Preflight again without reloading the whole page.
+
+
+## Ports page (TCP/UDP)
+Use **Ports** to scan open services on selected or bulk targets.
+- Profiles: TCP top common, TCP top 1–1024, UDP common, or custom port lists/ranges.
+- Optional **service version detection** (-sV).
+- Results are saved per-host under `data/artifacts/ports_*` with `nmap.xml`, `summary.json`, `ports.csv`, and `report.html`.
+- Bulk runs have a live **progress page** with quick summaries and links to per-host reports.
+
+**Notes**
+- UDP scanning may need elevated privileges and is slower by nature; consider focusing on common UDP ports.
+- You can run the app as your user and grant Nmap capabilities to support advanced scans:
+  ```bash
+  sudo setcap cap_net_raw,cap_net_admin,cap_net_bind_service+eip $(which nmap)
+  ```
+
+
+### Saved Port Profiles & Timing
+- Create named **Port Profiles** with TCP/UDP lists, `-sV`, **timing (T0–T5)**, and **host-timeout**.
+- Apply a saved profile from the **Ports** page or delete outdated ones.
+- Use timing to throttle aggressiveness (T0 slow/stealth → T5 fastest). Host-timeout accepts values like `90s`, `2m`, `1h`.

@@ -79,3 +79,37 @@ class Schedule(db.Model):
     enabled = db.Column(db.Boolean, default=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     notify = db.Column(db.Boolean, default=False)
+
+
+class PortJob(db.Model):
+    __tablename__ = "port_jobs"
+    id = db.Column(db.Integer, primary_key=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    status = db.Column(db.String(32), default="running")
+    host_ips = db.Column(db.Text, nullable=False)  # JSON list
+    options = db.Column(db.Text, nullable=True)    # JSON tcp/udp/version
+    result_ids = db.Column(db.Text, nullable=True) # JSON list
+
+class PortResult(db.Model):
+    __tablename__ = "port_results"
+    id = db.Column(db.Integer, primary_key=True)
+    job_id = db.Column(db.Integer, db.ForeignKey("port_jobs.id", ondelete="SET NULL"))
+    host_ip = db.Column(db.String(64), nullable=False)
+    status = db.Column(db.String(32), default="pending")
+    started_at = db.Column(db.DateTime, default=datetime.utcnow)
+    finished_at = db.Column(db.DateTime, nullable=True)
+    artifact_path = db.Column(db.String(256), nullable=True)
+    open_tcp = db.Column(db.Text, nullable=True)   # JSON list
+    open_udp = db.Column(db.Text, nullable=True)   # JSON list
+
+
+class PortProfile(db.Model):
+    __tablename__ = "port_profiles"
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(128), unique=True, nullable=False)
+    description = db.Column(db.String(256), nullable=True)
+    tcp_ports = db.Column(db.String(256), nullable=True)
+    udp_ports = db.Column(db.String(256), nullable=True)
+    version_probe = db.Column(db.Boolean, default=False)
+    timing = db.Column(db.String(4), default="T4")         # T0..T5
+    host_timeout = db.Column(db.String(16), default="90s")  # e.g., 60s, 5m

@@ -2,6 +2,20 @@ import os, json, csv, datetime, zipfile
 from jinja2 import Template
 
 class ReportBuilder:
+    def export_change_package(self):
+        import zipfile, time
+        ts = time.strftime('%Y%m%dT%H%M%SZ', time.gmtime())
+        out = os.path.join(self.outdir, f'cab_{ts}.zip')
+        if os.path.exists(out):
+            os.remove(out)
+        with zipfile.ZipFile(out, 'w', zipfile.ZIP_DEFLATED) as z:
+            for name in ['summary.json','report.json','report.csv','report.html','plan.txt','inventory.ini','site.yml','ansible.json']:
+                p = os.path.join(self.outdir, name)
+                if os.path.exists(p):
+                    z.write(p, arcname=name)
+        return out
+
+
     def __init__(self, outdir):
         self.outdir = outdir
         os.makedirs(self.outdir, exist_ok=True)

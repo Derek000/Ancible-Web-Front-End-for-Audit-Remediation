@@ -23,3 +23,21 @@ def preflight_api():
     from ..preflight import run_preflight, decorate_with_fixes
     result = decorate_with_fixes(run_preflight())
     return jsonify(result)
+
+
+@api_bp.get("/ports/profile/<int:pid>")
+def ports_profile_get(pid):
+    from ..models import PortProfile
+    p = PortProfile.query.get(pid)
+    if not p:
+        return jsonify({"error":"not found"}), 404
+    return jsonify({
+        "id": p.id,
+        "name": p.name,
+        "description": p.description or "",
+        "tcp_ports": p.tcp_ports or "",
+        "udp_ports": p.udp_ports or "",
+        "version_probe": bool(p.version_probe),
+        "timing": p.timing or "T4",
+        "host_timeout": p.host_timeout or "90s"
+    })

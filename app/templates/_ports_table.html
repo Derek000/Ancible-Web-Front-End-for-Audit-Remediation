@@ -1,0 +1,27 @@
+
+<table>
+  <thead><tr><th>Host</th><th>Status</th><th>Open TCP</th><th>Open UDP</th><th>Report</th></tr></thead>
+  <tbody>
+  {% for r in results %}
+    {% set tcp_list = (r.open_tcp|fromjson) if r.open_tcp else [] %}
+    {% set udp_list = (r.open_udp|fromjson) if r.open_udp else [] %}
+    <tr>
+      <td>{{ r.host_ip }}</td>
+      <td>{{ r.status }}</td>
+      <td>
+        {% for p in tcp_list[:6] %}
+          <span class="chip">tcp/{{ p.port }}</span>
+        {% endfor %}
+        {% if tcp_list|length > 6 %}… ({{ tcp_list|length }}){% endif %}
+      </td>
+      <td>
+        {% for p in udp_list[:6] %}
+          <span class="chip">udp/{{ p.port }}</span>
+        {% endfor %}
+        {% if udp_list|length > 6 %}… ({{ udp_list|length }}){% endif %}
+      </td>
+      <td>{% if r.artifact_path %}<a href="/{{ r.artifact_path }}/report.html">view</a>{% endif %}</td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
