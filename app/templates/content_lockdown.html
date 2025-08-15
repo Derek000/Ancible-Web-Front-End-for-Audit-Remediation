@@ -1,0 +1,15 @@
+{% extends "base.html" %}
+{% block content %}
+<h2>Lockdown Roles</h2>
+<form method="post">
+  <label>Role repo name (e.g., UBUNTU22-CIS, DEBIAN12-CIS, RHEL9-STIG)
+    <input type="text" name="repo" required>
+  </label>
+  <button type="submit">Fetch/Update</button>
+</form>
+<ul>
+{% for r in roles %}
+<li><strong>{{ r.name }}</strong> — commit <code>{{ r.commit[:12] if r.commit }}</code> — path <code>{{ r.path }}</code></li>
+{% endfor %}
+</ul>
+{% endblock %}

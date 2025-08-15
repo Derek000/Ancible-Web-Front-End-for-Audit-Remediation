@@ -1,0 +1,12 @@
+{% extends "base.html" %}
+{% block content %}
+<h2>New Network Scan</h2>
+<form method="post">
+  <label>Name <input type="text" name="name" required placeholder="Prod-DC West VLAN 20"></label>
+  <label>Targets (IPv4/IPv6 CIDRs or hosts, comma/space separated)
+    <input type="text" name="targets" required placeholder="10.10.20.0/24 2001:db8::/64">
+  </label>
+  <label>Notes <input type="text" name="notes" placeholder="Discovery before EOM patching"></label>
+  <button type="submit">Start Scan</button>
+</form>
+{% endblock %}

@@ -1,0 +1,13 @@
+{% extends "base.html" %}
+{% block content %}
+<h2>Remediation — {{ role.name }} — {{ run.host_ip }}</h2>
+<form method="post">
+  <p>Select controls to remediate (from last audit):</p>
+  <div class="chips">
+  {% for c in controls %}
+    <label><input type="checkbox" name="controls" value="{{ c }}"> {{ c }}</label>
+  {% endfor %}
+  </div>
+  <button type="submit" {% if not controls %}disabled{% endif %}>Run Remediation</button>
+</form>
+{% endblock %}

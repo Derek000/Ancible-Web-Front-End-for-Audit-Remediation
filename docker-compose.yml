@@ -1,0 +1,15 @@
+services:
+  ansiauditui:
+    build: .
+    ports:
+      - "8000:8000"
+    environment:
+      - BIND=0.0.0.0
+      - PORT=8000
+    cap_add:
+      - NET_RAW
+      - NET_ADMIN
+    volumes:
+      - ./data:/app/data
+      - ./logs:/app/logs
+      - ./content:/app/content

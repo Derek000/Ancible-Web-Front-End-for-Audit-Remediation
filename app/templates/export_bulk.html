@@ -1,0 +1,13 @@
+{% extends "base.html" %}
+{% block content %}
+<h2>Export CAB Packages (Bulk)</h2>
+<form method="post">
+  <p>Select runs to include:</p>
+  <div class="hostlist">
+    {% for r in runs %}
+    <label><input type="checkbox" name="run_ids" value="{{ r.id }}"> Run #{{ r.id }} — {{ r.mode|upper }} — {{ r.role_name }} — {{ r.host_ip }} — {{ r.status }}</label><br/>
+    {% endfor %}
+  </div>
+  <button type="submit">Download Bulk CAB Zip</button>
+</form>
+{% endblock %}

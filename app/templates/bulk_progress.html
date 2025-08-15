@@ -1,0 +1,11 @@
+{% extends "base.html" %}
+{% block content %}
+<h2>Bulk Job #{{ job.id }} — {{ job.mode|upper }} — {{ job.role_name }}</h2>
+<div class="progressbar">
+  <div class="bar" style="width: {{ progress.percent }}%"></div>
+</div>
+<p>{{ progress.done }}/{{ progress.total }} complete{% if eta %} — ETA ~ {{ (eta//60) }}m {{ (eta%60) }}s{% endif %}</p>
+<div id="progress" hx-get="{{ url_for('ui.bulk_fragment', job_id=job.id) }}" hx-trigger="load, every 2s" hx-swap="innerHTML">
+  Loading...
+</div>
+{% endblock %}

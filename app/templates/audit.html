@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+{% block content %}
+<h2>Audit {{ ip }}</h2>
+{% if not cred %}
+  <p class="warn">No credentials set. <a href="{{ url_for('ui.credentials', ip=ip) }}">Add credentials</a></p>
+{% endif %}
+<form method="post">
+  <label>Role
+    <select name="role_id" required>
+      {% for r in roles %}
+        <option value="{{ r.id }}">{{ r.name }}</option>
+      {% endfor %}
+    </select>
+  </label>
+  <button type="submit" {% if not cred %}disabled{% endif %}>Run AUDIT</button>
+</form>
+{% endblock %}

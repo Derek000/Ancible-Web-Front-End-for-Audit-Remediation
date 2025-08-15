@@ -1,0 +1,63 @@
+{% extends "base.html" %}
+{% block content %}
+<section>
+  <h2>Recent Scans</h2>
+  <table>
+    <thead><tr><th>Name</th><th>Targets</th><th>Status</th><th>Artifacts</th></tr></thead>
+    <tbody>
+      {% for s in scans %}
+        <tr>
+          <td>{{ s.name }}</td>
+          <td>{{ s.targets }}</td>
+          <td>{{ s.status }}</td>
+          <td>{% if s.result_path %}<a href="/{{ s.result_path }}">artifacts</a>{% endif %}</td>
+        </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</section>
+
+<section>
+  <h2>Assets</h2>
+  <table>
+    <thead><tr><th>IP</th><th>Hostname</th><th>OS</th><th>Creds</th><th>Actions</th></tr></thead>
+    <tbody>
+      {% for h in hosts %}
+        <tr>
+          <td>{{ h.ip }}</td>
+          <td>{{ h.hostname or '-' }}</td>
+          <td>{{ h.os_name or h.os_family or '-' }}</td>
+          <td><a href="{{ url_for('ui.credentials', ip=h.ip) }}">set</a></td>
+          <td><a href="{{ url_for('ui.audit', ip=h.ip) }}">AUDIT</a></td>
+        </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</section>
+
+<section>
+  <h2>Lockdown Roles</h2>
+  <ul>
+    {% for r in roles %}<li>{{ r.name }} — <code>{{ r.commit[:7] if r.commit }}</code></li>{% endfor %}
+  </ul>
+</section>
+
+<section>
+  <h2>Runs</h2>
+  <table>
+    <thead><tr><th>When</th><th>Host</th><th>Role</th><th>Mode</th><th>Status</th><th>Report</th></tr></thead>
+    <tbody>
+      {% for r in runs %}
+        <tr>
+          <td>{{ r.started_at }}</td>
+          <td>{{ r.host_ip }}</td>
+          <td>{{ r.role_name }}</td>
+          <td>{{ r.mode }}</td>
+          <td>{{ r.status }}</td>
+          <td>{% if r.report_path %}<a href="/{{ r.report_path }}">view</a>{% endif %} {% if r.mode=='audit' and r.status=='complete' %}<a href="{{ url_for('ui.remediate', run_id=r.id) }}">Remediate</a>{% endif %}</td>
+        </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</section>
+{% endblock %}

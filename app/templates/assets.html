@@ -1,0 +1,18 @@
+{% extends "base.html" %}
+{% block content %}
+<h2>Assets</h2>
+<table>
+  <thead><tr><th>IP</th><th>Hostname</th><th>OS</th><th>Creds</th><th>Audit</th></tr></thead>
+  <tbody>
+    {% for h in hosts %}
+      <tr>
+        <td>{{ h.ip }}</td>
+        <td>{{ h.hostname or '-' }}</td>
+        <td>{{ h.os_name or h.os_family or '-' }}</td>
+        <td><a href="{{ url_for('ui.credentials', ip=h.ip) }}">Edit</a></td>
+        <td><a href="{{ url_for('ui.audit', ip=h.ip) }}">Run AUDIT</a></td>
+      </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endblock %}

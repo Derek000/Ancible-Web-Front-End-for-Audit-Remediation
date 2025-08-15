@@ -1,0 +1,15 @@
+<table>
+  <thead><tr><th>Run ID</th><th>Host</th><th>Role</th><th>Mode</th><th>Status</th><th>Report</th></tr></thead>
+  <tbody>
+    {% for r in runs %}
+    <tr>
+      <td>{{ r.id }}</td>
+      <td>{{ r.host_ip }}</td>
+      <td>{{ r.role_name }}</td>
+      <td>{{ r.mode }}</td>
+      <td>{{ r.status }}</td>
+      <td>{% if r.report_path %}<a href="/{{ r.report_path }}">view</a>{% endif %}</td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>

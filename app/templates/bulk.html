@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+{% block content %}
+<h2>Bulk Operations</h2>
+<form method="get" class="filters">
+  <label>Filter by Network Name <input type="text" name="network" value="{{ q_net or '' }}" placeholder="e.g., Prod-DC West VLAN 20"></label>
+  <label>Filter by OS Family <input type="text" name="os" value="{{ q_os or '' }}" placeholder="e.g., linux, windows"></label>
+  <button type="submit">Apply Filters</button>
+</form>
+<form method="post">
+  <label>Mode
+    <select name="mode">
+      <option value="audit">AUDIT</option>
+      <option value="remediate">Remediate</option>
+    </select>
+  </label>
+  <label>Role
+    <select name="role_id">
+      {% for r in roles %}
+      <option value="{{ r.id }}">{{ r.name }}</option>
+      {% endfor %}
+    </select>
+  </label>
+  <details>
+    <summary>Remediation options</summary>
+    <label><input type="checkbox" name="use_last_audit"> Use failed controls from last AUDIT per host</label>
+    <label>Or custom control tags (comma-separated) <input type="text" name="tags_csv" placeholder="CIS-1.1.1, CIS-1.2.3"></label>
+  </details>
+  <h3>Select Hosts</h3>
+  <div class="hostlist">
+    {% for h in hosts %}
+    <label><input type="checkbox" name="ips" value="{{ h.ip }}"> {{ h.ip }} — {{ h.hostname or '-' }} — {{ h.os_name or h.os_family or '-' }}</label><br/>
+    {% endfor %}
+  </div>
+  <button type="submit">Run</button>
+</form>
+{% endblock %}
